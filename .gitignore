@@ -37,3 +37,6 @@ out/
 
 ### Env File ###
 .env
+
+### Session file ###
+session.json
