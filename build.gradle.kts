@@ -38,10 +38,15 @@ dependencies {
     // Dotenv
     implementation("io.github.cdimascio:dotenv-kotlin:6.3.1")
 
-    // Kotlinx datetime
-    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
+    // cache headers
+    implementation("io.ktor:ktor-server-caching-headers:$ktor_version")
 
     implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
     testImplementation("io.ktor:ktor-server-tests-jvm:$ktor_version")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
+}
+
+// For heroku, make an executable for it to run
+tasks {
+    create("stage").dependsOn("installDist")
 }
