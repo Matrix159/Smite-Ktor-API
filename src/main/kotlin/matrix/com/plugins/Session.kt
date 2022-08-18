@@ -56,7 +56,7 @@ data class SessionResponse(
 
 var activeSession: Session? = null
 
-val SmiteSessionPlugin = createApplicationPlugin(name = "SimplePlugin") {
+val SmiteSessionPlugin = createApplicationPlugin(name = "SmiteSessionPlugin") {
     if (API_ID.isNullOrEmpty() || API_KEY.isNullOrEmpty()) {
         throw Exception("Please specify an API_ID and API_KEY")
     }
