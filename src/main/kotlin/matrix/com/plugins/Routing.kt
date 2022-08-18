@@ -14,11 +14,15 @@ import matrix.com.util.MD5Hash
 import matrix.com.util.createMD5Hash
 
 fun Application.configureRouting() {
+
     routing {
+
         get("/") {
-            activeSession?.let {
-                call.respond(activeSession!!)
-            }
+            val childrenRoutes = this@routing.children
+                .flatMap { allRoutes(it) }
+                .filter { it.selector !is HttpMethodRouteSelector }
+                .map { it.toString() }
+            call.respond(childrenRoutes)
         }
         route("/gods") {
             get {
@@ -61,4 +65,7 @@ fun Application.configureRouting() {
     }
 }
 
+fun allRoutes(root: Route): List<Route> {
+    return listOf(root) + root.children.flatMap { allRoutes(it) }
+}
 
