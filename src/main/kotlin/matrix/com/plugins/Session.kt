@@ -1,6 +1,5 @@
 package matrix.com.plugins
 
-import io.github.cdimascio.dotenv.dotenv
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.http.*
@@ -22,9 +21,8 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-val dotenv = dotenv()
-val API_ID: String? = dotenv["API_ID"]
-val API_KEY: String? = dotenv["API_KEY"]
+val API_ID: String? = System.getenv("API_ID")
+val API_KEY: String? = System.getenv("API_KEY")
 
 object LocalDateTimeSerializer : KSerializer<LocalDateTime> {
 

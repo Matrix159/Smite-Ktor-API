@@ -35,9 +35,6 @@ dependencies {
     implementation("io.ktor:ktor-client-core:$ktor_version")
     implementation("io.ktor:ktor-client-cio:$ktor_version")
 
-    // Dotenv
-    implementation("io.github.cdimascio:dotenv-kotlin:6.3.1")
-
     // cache headers
     implementation("io.ktor:ktor-server-caching-headers:$ktor_version")
 
