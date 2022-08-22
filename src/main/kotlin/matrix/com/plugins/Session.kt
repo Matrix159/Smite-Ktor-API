@@ -63,17 +63,24 @@ val SmiteSessionPlugin = createApplicationPlugin(name = "SmiteSessionPlugin") {
     onCall { call ->
         if (activeSession == null) {
             // try reading the session from file first
+            println("Opening session file...")
             val file = File("session.json")
             if (file.exists() && file.canRead()) {
                 withContext(Dispatchers.IO) {
                     try {
+                        println("File exists, try to decode it and set the active session")
                         activeSession = Json.decodeFromString(file.readText())
+                        println("Decoded and active session is: $activeSession")
                     } catch (ex: Exception) {
                         if (ex !is CancellationException) {
                             println("An error occurred trying to read session file.")
+                            return@withContext
                         }
+                        throw ex
                     }
                 }
+            } else {
+                println("Couldn't read from file, it doesn't exist or doesn't allow us to read from it.")
             }
         }
         if (activeSession == null || activeSession?.expiresAt?.isBefore(LocalDateTime.now()) == true) {
@@ -82,8 +89,10 @@ val SmiteSessionPlugin = createApplicationPlugin(name = "SmiteSessionPlugin") {
             val response =
                 httpClient.get("https://api.smitegame.com/smiteapi.svc/createsessionJson/${API_ID}/${md5Hash.digest}/${md5Hash.utcNow}")
             if (response.status == HttpStatusCode.OK) {
+                println("We received a successful session.")
+
                 val sessionResponse = response.body<SessionResponse>()
-                println(sessionResponse.timestamp)
+                println("Session: $sessionResponse")
 
                 activeSession = Session(
                     sessionId = sessionResponse.sessionId,
