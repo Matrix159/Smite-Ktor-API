@@ -77,6 +77,7 @@ val SmiteSessionPlugin = createApplicationPlugin(name = "SmiteSessionPlugin") {
             }
         }
         if (activeSession == null || activeSession?.expiresAt?.isBefore(LocalDateTime.now()) == true) {
+            println("Creating a session...")
             val md5Hash = createMD5Hash(endpoint = "createsession")
             val response =
                 httpClient.get("https://api.smitegame.com/smiteapi.svc/createsessionJson/${API_ID}/${md5Hash.digest}/${md5Hash.utcNow}")
