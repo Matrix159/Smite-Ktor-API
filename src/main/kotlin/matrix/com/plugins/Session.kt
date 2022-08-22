@@ -18,21 +18,22 @@ import kotlinx.serialization.json.Json
 import matrix.com.httpClient
 import matrix.com.util.createMD5Hash
 import java.io.File
-import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 val API_ID: String? = System.getenv("API_ID")
 val API_KEY: String? = System.getenv("API_KEY")
 
-object LocalDateTimeSerializer : KSerializer<LocalDateTime> {
+object ZonedDateTimeTimeSerializer : KSerializer<ZonedDateTime> {
 
     override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("LocalDateTime", PrimitiveKind.STRING)
+        PrimitiveSerialDescriptor("ZonedDateTime", PrimitiveKind.STRING)
 
-    override fun deserialize(decoder: Decoder): LocalDateTime =
-        LocalDateTime.parse(decoder.decodeString())
+    override fun deserialize(decoder: Decoder): ZonedDateTime =
+        ZonedDateTime.parse(decoder.decodeString())
 
-    override fun serialize(encoder: Encoder, value: LocalDateTime) {
+    override fun serialize(encoder: Encoder, value: ZonedDateTime) {
         encoder.encodeString(value.toString())
     }
 
@@ -41,8 +42,8 @@ object LocalDateTimeSerializer : KSerializer<LocalDateTime> {
 @Serializable
 data class Session(
     val sessionId: String,
-    @Serializable(LocalDateTimeSerializer::class)
-    val expiresAt: LocalDateTime
+    @Serializable(ZonedDateTimeTimeSerializer::class)
+    val expiresAt: ZonedDateTime
 )
 
 @Serializable
@@ -83,7 +84,10 @@ val SmiteSessionPlugin = createApplicationPlugin(name = "SmiteSessionPlugin") {
                 println("Couldn't read from file, it doesn't exist or doesn't allow us to read from it.")
             }
         }
-        if (activeSession == null || activeSession?.expiresAt?.isBefore(LocalDateTime.now()) == true) {
+
+        if (activeSession == null ||
+            ZonedDateTime.now(ZoneOffset.UTC).isAfter(activeSession?.expiresAt)
+        ) {
             println("Creating a session...")
             val md5Hash = createMD5Hash(endpoint = "createsession")
             val response =
@@ -96,10 +100,10 @@ val SmiteSessionPlugin = createApplicationPlugin(name = "SmiteSessionPlugin") {
 
                 activeSession = Session(
                     sessionId = sessionResponse.sessionId,
-                    expiresAt = LocalDateTime.parse(
+                    expiresAt = ZonedDateTime.parse(
                         sessionResponse.timestamp,
-                        DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a")
-                    )
+                        DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a").withZone(ZoneOffset.UTC)
+                    ).plusMinutes(15) // Sessions are 15 minutes long, but we need to provide that offset
                 )
                 // Write to session file in case application restarts
                 withContext(Dispatchers.IO) {
