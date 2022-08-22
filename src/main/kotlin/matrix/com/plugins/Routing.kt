@@ -62,6 +62,47 @@ fun Application.configureRouting() {
                 )
             }
         }
+        route("/patchinfo") {
+            get {
+                val hash: MD5Hash = createMD5Hash(endpoint = "getpatchinfo")
+                call.respond(
+                    Json.parseToJsonElement(
+                        httpClient.get("https://api.smitegame.com/smiteapi.svc/getpatchinfoJson/${API_ID}/${hash.digest}/${activeSession?.sessionId}/${hash.utcNow}")
+                            .body()
+                    )
+                )
+            }
+        }
+
+        route("/godleaderboard/{godId}") {
+            get {
+                val hash: MD5Hash = createMD5Hash(endpoint = "getgodleaderboard")
+                call.respond(
+                    Json.parseToJsonElement(
+                        httpClient.get(
+                            "https://api.smitegame.com/smiteapi.svc/getgodleaderboardJson/" +
+                                    "${API_ID}/${hash.digest}/${activeSession?.sessionId}/${hash.utcNow}/${call.parameters["godId"]}/451"
+                        )
+                            .body()
+                    )
+                )
+            }
+        }
+
+        route("/godaltabilities") {
+            get {
+                val hash: MD5Hash = createMD5Hash(endpoint = "getgodaltabilities")
+                call.respond(
+                    Json.parseToJsonElement(
+                        httpClient.get(
+                            "https://api.smitegame.com/smiteapi.svc/getgodaltabilitiesJson/" +
+                                    "${API_ID}/${hash.digest}/${activeSession?.sessionId}/${hash.utcNow}"
+                        )
+                            .body()
+                    )
+                )
+            }
+        }
     }
 }
 
