@@ -16,11 +16,10 @@ import matrix.com.util.createMD5Hash
 fun Application.configureRouting() {
 
     routing {
-
         get("/") {
             val childrenRoutes = this@routing.children
-                .flatMap { allRoutes(it) }
-                .filter { it.selector !is HttpMethodRouteSelector }
+                .flatMap { constructUsableRouteList(it) }
+                .filterNot { it.toString() == "/" }
                 .map { it.toString() }
             call.respond(childrenRoutes)
         }
@@ -62,6 +61,17 @@ fun Application.configureRouting() {
                 )
             }
         }
+        route("/hirezserverstatus") {
+            get {
+                val hash: MD5Hash = createMD5Hash(endpoint = "gethirezserverstatus")
+                call.respond(
+                    Json.parseToJsonElement(
+                        httpClient.get("https://api.smitegame.com/smiteapi.svc/gethirezserverstatusJson/${API_ID}/${hash.digest}/${activeSession?.sessionId}/${hash.utcNow}")
+                            .body()
+                    )
+                )
+            }
+        }
         route("/patchinfo") {
             get {
                 val hash: MD5Hash = createMD5Hash(endpoint = "getpatchinfo")
@@ -82,13 +92,25 @@ fun Application.configureRouting() {
                         httpClient.get(
                             "https://api.smitegame.com/smiteapi.svc/getgodleaderboardJson/" +
                                     "${API_ID}/${hash.digest}/${activeSession?.sessionId}/${hash.utcNow}/${call.parameters["godId"]}/451"
-                        )
-                            .body()
+                        ).body()
                     )
                 )
             }
         }
 
+        route("/godrecommendeditems/{godId}") {
+            get {
+                val hash: MD5Hash = createMD5Hash(endpoint = "getgodrecommendeditems")
+                call.respond(
+                    Json.parseToJsonElement(
+                        httpClient.get(
+                            "https://api.smitegame.com/smiteapi.svc/getgodrecommendeditemsJson/" +
+                                    "${API_ID}/${hash.digest}/${activeSession?.sessionId}/${hash.utcNow}/${call.parameters["godId"]}/1"
+                        ).body()
+                    )
+                )
+            }
+        }
         route("/godaltabilities") {
             get {
                 val hash: MD5Hash = createMD5Hash(endpoint = "getgodaltabilities")
@@ -97,8 +119,25 @@ fun Application.configureRouting() {
                         httpClient.get(
                             "https://api.smitegame.com/smiteapi.svc/getgodaltabilitiesJson/" +
                                     "${API_ID}/${hash.digest}/${activeSession?.sessionId}/${hash.utcNow}"
-                        )
-                            .body()
+                        ).body()
+                    )
+                )
+            }
+        }
+
+        route("/getplayer/{player}/{portalId?}") {
+            get {
+                val hash: MD5Hash = createMD5Hash(endpoint = "getplayer")
+                val player = call.parameters["player"]
+                val portalId = call.parameters["portalId"]
+                var urlToFetch = "https://api.smitegame.com/smiteapi.svc/getplayerJson/" +
+                        "${API_ID}/${hash.digest}/${activeSession?.sessionId}/${hash.utcNow}/${player}"
+                if (portalId?.isNotEmpty() == true) {
+                    urlToFetch += "/${portalId}"
+                }
+                call.respond(
+                    Json.parseToJsonElement(
+                        httpClient.get(urlToFetch).body()
                     )
                 )
             }
@@ -106,7 +145,10 @@ fun Application.configureRouting() {
     }
 }
 
-fun allRoutes(root: Route): List<Route> {
-    return listOf(root) + root.children.flatMap { allRoutes(it) }
+fun constructUsableRouteList(root: Route): List<Route> {
+    if (root.children.isEmpty()) {
+        return root.parent?.let { listOf(it) } ?: emptyList()
+    }
+    return root.children.flatMap { constructUsableRouteList(it) }
 }
 
