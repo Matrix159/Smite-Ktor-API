@@ -7,6 +7,8 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.*
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -21,6 +23,7 @@ import java.io.File
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.atomic.AtomicBoolean
 
 val API_ID: String? = System.getenv("API_ID")
 val API_KEY: String? = System.getenv("API_KEY")
@@ -56,28 +59,37 @@ data class SessionResponse(
 )
 
 var activeSession: Session? = null
+val sessionMutex = Mutex()
 
 val SmiteSessionPlugin = createApplicationPlugin(name = "SmiteSessionPlugin") {
     if (API_ID.isNullOrEmpty() || API_KEY.isNullOrEmpty()) {
         throw Exception("Please specify an API_ID and API_KEY")
     }
+
     onCall { call ->
         if (activeSession == null) {
             // try reading the session from file first
-            println("Opening session file...")
             val file = File("session.json")
             if (file.exists() && file.canRead()) {
-                withContext(Dispatchers.IO) {
-                    try {
-                        println("File exists, try to decode it and set the active session")
-                        activeSession = Json.decodeFromString(file.readText())
-                        println("Decoded and active session is: $activeSession")
-                    } catch (ex: Exception) {
-                        if (ex !is CancellationException) {
-                            println("An error occurred trying to read session file.")
-                            return@withContext
+                sessionMutex.withLock {
+                    println("Opening session file...")
+                    // Another thread updated the session while we waited for this lock, don't proceed
+                    if (activeSession != null) {
+                        println("Session was updated in another call")
+                        return@withLock
+                    }
+                    withContext(Dispatchers.IO) {
+                        try {
+                            println("File exists, try to decode it and set the active session")
+                            activeSession = Json.decodeFromString(file.readText())
+                            println("Decoded and active session is: $activeSession")
+                        } catch (ex: Exception) {
+                            if (ex !is CancellationException) {
+                                println("An error occurred trying to read session file.")
+                                return@withContext
+                            }
+                            throw ex
                         }
-                        throw ex
                     }
                 }
             } else {
@@ -85,32 +97,40 @@ val SmiteSessionPlugin = createApplicationPlugin(name = "SmiteSessionPlugin") {
             }
         }
 
-        if (activeSession == null ||
-            ZonedDateTime.now(ZoneOffset.UTC).isAfter(activeSession?.expiresAt)
+        if ((activeSession == null ||
+            ZonedDateTime.now(ZoneOffset.UTC).isAfter(activeSession?.expiresAt))
         ) {
-            println("Creating a session...")
-            val md5Hash = createMD5Hash(endpoint = "createsession")
-            val response =
-                httpClient.get("https://api.smitegame.com/smiteapi.svc/createsessionJson/${API_ID}/${md5Hash.digest}/${md5Hash.utcNow}")
-            if (response.status == HttpStatusCode.OK) {
-                println("We received a successful session.")
-
-                val sessionResponse = response.body<SessionResponse>()
-                println("Session: $sessionResponse")
-
-                activeSession = Session(
-                    sessionId = sessionResponse.sessionId,
-                    expiresAt = ZonedDateTime.parse(
-                        sessionResponse.timestamp,
-                        DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a").withZone(ZoneOffset.UTC)
-                    ).plusMinutes(15) // Sessions are 15 minutes long, but we need to provide that offset
-                )
-                // Write to session file in case application restarts
-                withContext(Dispatchers.IO) {
-                    File("session.json").writeText(Json.encodeToString(activeSession))
+            sessionMutex.withLock {
+                // Check if the conditions are still true, as another thread might've updated it in a previous lock
+                if (!(activeSession == null || ZonedDateTime.now(ZoneOffset.UTC).isAfter(activeSession?.expiresAt))) {
+                    println("Session was updated in another call")
+                    return@withLock
                 }
-            } else {
-                call.respond("Failed to create session")
+                println("Creating a session...")
+
+                val md5Hash = createMD5Hash(endpoint = "createsession")
+                val response =
+                    httpClient.get("https://api.smitegame.com/smiteapi.svc/createsessionJson/${API_ID}/${md5Hash.digest}/${md5Hash.utcNow}")
+                if (response.status == HttpStatusCode.OK) {
+                    println("We received a successful session.")
+
+                    val sessionResponse = response.body<SessionResponse>()
+                    println("Session: $sessionResponse")
+
+                    activeSession = Session(
+                        sessionId = sessionResponse.sessionId,
+                        expiresAt = ZonedDateTime.parse(
+                            sessionResponse.timestamp,
+                            DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a").withZone(ZoneOffset.UTC)
+                        ).plusMinutes(15) // Sessions are 15 minutes long, but we need to provide that offset
+                    )
+                    // Write to session file in case application restarts
+                    withContext(Dispatchers.IO) {
+                        File("session.json").writeText(Json.encodeToString(activeSession))
+                    }
+                } else {
+                    call.respond("Failed to create session")
+                }
             }
         }
     }

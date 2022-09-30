@@ -21,7 +21,7 @@ fun Application.configureRouting() {
                 .flatMap { constructUsableRouteList(it) }
                 .filterNot { it.toString() == "/" }
                 .map { it.toString() }
-            
+
             call.respond(childrenRoutes)
         }
         route("/gods") {
