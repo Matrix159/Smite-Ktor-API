@@ -3,8 +3,8 @@
 A Ktor server that provides access to Hi-Rez's Smite API.
 
 ## Setup
-* Ensure a Java SDK version is installed that's compatible with Kotlin version `1.7.10`.
-* Create a `.env` file at the root of the project with an API_ID and API_KEY. These can be retrieved by submitting an application form here: https://fs12.formsite.com/HiRez/form48/secure_index.html
+* Ensure a Java SDK version is installed that's compatible with Kotlin version `1.9.22`.
+* Create environment variables of API_ID and API_KEY. These can be retrieved by submitting an application form here: https://fs12.formsite.com/HiRez/form48/secure_index.html
 
 ## Tips
 * Visit the root of the API at `/` to see the available endpoints available. 
